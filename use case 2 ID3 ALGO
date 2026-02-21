@@ -1,0 +1,75 @@
+import pandas as pd
+import numpy as np
+
+# Sample medical dataset
+data = {
+    'Fever': ['Yes','Yes','Yes','No','No','No','Yes','No'],
+    'Cough': ['Yes','Yes','No','Yes','Yes','No','No','No'],
+    'Fatigue': ['Yes','No','Yes','Yes','No','Yes','No','No'],
+    'Disease': ['Yes','Yes','Yes','No','No','No','Yes','No']
+}
+
+df = pd.DataFrame(data)
+
+# Function to calculate entropy
+def entropy(target_col):
+    elements, counts = np.unique(target_col, return_counts=True)
+    entropy = np.sum([
+        (-counts[i]/np.sum(counts)) * np.log2(counts[i]/np.sum(counts))
+        for i in range(len(elements))
+    ])
+    return entropy
+
+# Function to calculate Information Gain
+def info_gain(data, split_attribute, target="Disease"):
+    total_entropy = entropy(data[target])
+    
+    vals, counts = np.unique(data[split_attribute], return_counts=True)
+    
+    weighted_entropy = np.sum([
+        (counts[i]/np.sum(counts)) * 
+        entropy(data.where(data[split_attribute]==vals[i]).dropna()[target])
+        for i in range(len(vals))
+    ])
+    
+    return total_entropy - weighted_entropy
+
+# ID3 Algorithm
+def ID3(data, originaldata, features, target="Disease", parent_node_class=None):
+    
+    # If all target values same, return that value
+    if len(np.unique(data[target])) <= 1:
+        return np.unique(data[target])[0]
+    
+    # If dataset empty
+    elif len(data)==0:
+        return np.unique(originaldata[target])[
+            np.argmax(np.unique(originaldata[target], return_counts=True)[1])]
+    
+    # If no more features
+    elif len(features)==0:
+        return parent_node_class
+    
+    else:
+        parent_node_class = np.unique(data[target])[
+            np.argmax(np.unique(data[target], return_counts=True)[1])]
+        
+        # Select best feature
+        item_values = [info_gain(data, feature, target) for feature in features]
+        best_feature_index = np.argmax(item_values)
+        best_feature = features[best_feature_index]
+        
+        tree = {best_feature:{}}
+        
+        features = [i for i in features if i != best_feature]
+        
+        for value in np.unique(data[best_feature]):
+            sub_data = data.where(data[best_feature]==value).dropna()
+            subtree = ID3(sub_data, df, features, target, parent_node_class)
+            tree[best_feature][value] = subtree
+            
+        return tree
+
+# Build tree
+tree = ID3(df, df, df.columns[:-1])
+print(tree)
